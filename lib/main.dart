@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:sensor_test/spot_stream.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
@@ -17,7 +19,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: "gon2gon2's sensor demo Page"),
+      debugShowCheckedModeBanner: false,
+      home: const MyHomePage(title: "Sample Sensor App"),
     );
   }
 }
@@ -36,20 +39,52 @@ class _MyHomePageState extends State<MyHomePage> {
   static const int _snakeColumns = 20;
   static const double _snakeCellSize = 10.0;
 
+  SpotStream spotStream = SpotStream();
   List<double>? _accelerometerValues;
   List<double>? _userAccelerometerValues;
   List<double>? _gyroscopeValues;
   List<double>? _magnetometerValues;
+  double count = 0;
+  double currentCount = 0;
+  List<FlSpot> accelerometerSpots = [];
   final _streamSubscriptions = <StreamSubscription<dynamic>>[];
 
   @override
   Widget build(BuildContext context) {
-    final accelerometer = _accelerometerValues?.map((double v) => v.toStringAsFixed(1)).toList();
-    final userAccelerometer = _userAccelerometerValues?.map((double v) => v.toStringAsFixed(1)).toList();
-    final gyroscope = _gyroscopeValues?.map((double v) => v.toStringAsFixed(1)).toList();
-    final magnetometer = _magnetometerValues?.map((double v) => v.toStringAsFixed(1)).toList();
-
+    final accelerometer = _accelerometerValues?.map((double v) {
+      return v.toStringAsFixed(3);
+    }).toList();
+    final userAccelerometer = _userAccelerometerValues
+        ?.map((double v) => v.toStringAsFixed(3))
+        .toList();
+    final gyroscope =
+        _gyroscopeValues?.map((double v) => v.toStringAsFixed(1)).toList();
+    final magnetometer =
+        _magnetometerValues?.map((double v) => v.toStringAsFixed(1)).toList();
+    //
+    // Timer t = Timer.periodic(Duration(seconds: 30), (timer) {
+    //   accelerometerSpots = [
+    //     ...accelerometerSpots,
+    //     FlSpot(count, double.tryParse(accelerometer![1]) ?? 0)
+    //   ];
+    //   spotStream.setSpots.sink.add(accelerometerSpots);
+    //
+    //   print(accelerometerSpots);
+    //
+    //   count++;
+    //   if (count == 60) {
+    //     timer.cancel();
+    //   }
+    // });
+    //
+    // if(count == 60)
+    //   {
+    //     t.cancel();
+    //   }
     return Scaffold(
+      floatingActionButton: FloatingActionButton(onPressed: (){
+        spotStream.startListening();
+      }, child: Icon(Icons.refresh_outlined),),
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
@@ -57,21 +92,115 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
-            Text("Accelerometer:  $accelerometer"),
-            Text("UserAccelerometer:  $userAccelerometer"),
-            Text("Gyroscope:  $gyroscope"),
-            Text("Magnetometer:  $magnetometer"),
+            Padding(
+              padding: const EdgeInsets.all(25.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  StreamBuilder(
+                      stream: spotStream.min,
+                      builder: (context, snapshot) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Min",
+                              style: TextStyle(fontSize: 18),
+                            ),
+                            Text(
+                              "${snapshot.data ?? '0.0'}",
+                              style: TextStyle(
+                                  fontSize: 32, fontWeight: FontWeight.w600),
+                            )
+                          ],
+                        );
+                      }),
+                  StreamBuilder(
+                      stream: spotStream.average,
+                      builder: (context, snapshot) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Avg",
+                              style: TextStyle(fontSize: 18),
+                            ),
+                            Text(
+                              "${snapshot.data ?? '0.0'}",
+                              style: TextStyle(
+                                  fontSize: 32, fontWeight: FontWeight.w600),
+                            )
+                          ],
+                        );
+                      }),
+                  StreamBuilder(
+                      stream: spotStream.max,
+                      builder: (context, snapshot) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Max",
+                              style: TextStyle(fontSize: 18),
+                            ),
+                            Text(
+                              "${snapshot.data ?? '0.0'}",
+                              style: TextStyle(
+                                  fontSize: 32, fontWeight: FontWeight.w600),
+                            )
+                          ],
+                        );
+                      }),
+                ],
+              ),
+            ),
+            StreamBuilder(
+                stream: spotStream.spots,
+                builder: (context, snapshot) {
+                  // print(snapshot.data);
+                  return Container(
+                    height: 500,
+                    child: LineChart(LineChartData(
+                        lineBarsData: [
+                          LineChartBarData(
+                              color: const Color(0xff4af699),
+                              barWidth: 2,
+                              isStrokeCapRound: false,
+                              dotData: FlDotData(show: false),
+                              belowBarData: BarAreaData(show: false),
+                              spots: snapshot.data as List<FlSpot>,
+                              show: true)
+                        ],
+                        minX: 0,
+                        maxX: 59,
+                        maxY: 0.5,
+                        minY: -0.5,
+
+                        lineTouchData: LineTouchData(
+                          handleBuiltInTouches: true,
+                          touchTooltipData: LineTouchTooltipData(
+                            tooltipBgColor: Colors.blueGrey.withOpacity(0.8),
+                          ),
+                        ))),
+                  );
+                }),
+            // Text("UserAccelerometer:  $userAccelerometer"),
+            // Text("Gyroscope:  $gyroscope"),
+            // Text("Magnetometer:  $magnetometer"),
           ],
         ),
       ),
-      );
+    );
   }
+
   @override
-  void dispose(){
+  void dispose() {
     super.dispose();
-    for (final subscription in  _streamSubscriptions){
+    spotStream.dispose();
+    for (final subscription in _streamSubscriptions) {
       subscription.cancel();
     }
   }
@@ -79,18 +208,10 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    _streamSubscriptions.add(
-      accelerometerEvents.listen(
-            (AccelerometerEvent event) {
-          setState(() {
-            _accelerometerValues = <double>[event.x, event.y, event.z];
-          });
-        },
-      ),
-    );
+    spotStream.startListening();
     _streamSubscriptions.add(
       gyroscopeEvents.listen(
-            (GyroscopeEvent event) {
+        (GyroscopeEvent event) {
           setState(() {
             _gyroscopeValues = <double>[event.x, event.y, event.z];
           });
@@ -99,7 +220,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
     _streamSubscriptions.add(
       userAccelerometerEvents.listen(
-            (UserAccelerometerEvent event) {
+        (UserAccelerometerEvent event) {
           setState(() {
             _userAccelerometerValues = <double>[event.x, event.y, event.z];
           });
@@ -108,7 +229,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
     _streamSubscriptions.add(
       magnetometerEvents.listen(
-            (MagnetometerEvent event) {
+        (MagnetometerEvent event) {
           setState(() {
             _magnetometerValues = <double>[event.x, event.y, event.z];
           });
